@@ -4,4 +4,4 @@ adk deploy cloud_run \
 --service_name=$SERVICE_NAME \
 --app_name=$APP_NAME \
 --with_ui \
-./bq_tool_agent
+./census_query_agent

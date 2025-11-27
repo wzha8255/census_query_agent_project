@@ -2,7 +2,7 @@ export GOOGLE_CLOUD_PROJECT="christine-dev"
 
 export GOOGLE_CLOUD_LOCATION="us-central1"
 
-export AGENT_PATH="./bq_tool_agent"
+export AGENT_PATH="./census_query_agent"
 
 export SERVICE_NAME="bq-census-data-query-service"
 
