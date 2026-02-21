@@ -5,3 +5,10 @@ adk deploy cloud_run \
 --app_name=$APP_NAME \
 --with_ui \
 ./census_query_agent
+
+
+
+
+adk deploy cloud_run  \
+--service-account SERVICE_ACCOUNT_ADDRESS \
+--project PROJECT_ID --region REGION 

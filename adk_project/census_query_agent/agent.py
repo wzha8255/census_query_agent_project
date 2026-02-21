@@ -5,6 +5,13 @@ from google.adk.tools.bigquery import BigQueryToolset
 from google.adk.tools.bigquery.config import BigQueryToolConfig
 from google.adk.tools.bigquery.config import WriteMode
 
+from google.adk.tools import FunctionTool
+from census_query_agent.visualization import VisualizationTool
+
+
+## define tools
+
+### BigQuery Tool
 tool_config = BigQueryToolConfig(
     compute_project_id="christine-dev",
     write_mode=WriteMode.BLOCKED
@@ -18,6 +25,33 @@ credentials_config = BigQueryCredentialsConfig(
 bq_toolset = BigQueryToolset(
     credentials_config=credentials_config, bigquery_tool_config=tool_config
 )
+
+### Visualization Tool
+viz = VisualizationTool()
+
+GCS_CHART_BUCKET = "census_query_tool_project"  # <-- update to your bucket name
+
+def create_chart(rows: list[dict], x: str, y: str, kind: str = "bar", title: str = "") -> dict:
+    """Generate a bar/line/scatter chart from BigQuery result rows.
+    Returns a dict with 'png_base64' and 'data_uri'. Call upload_chart_to_gcs
+    afterwards to get a renderable HTTPS URL.
+    """
+    return viz.plot_from_rows(rows=rows, x=x, y=y, kind=kind, title=title)
+
+def upload_chart_to_gcs(png_base64: str, blob_name: str = "") -> dict:
+    """Upload a base64-encoded PNG chart to GCS and return a signed HTTPS URL
+    and a markdown image string ready to embed in the response.
+    blob_name is optional — a unique name is auto-generated if not provided.
+    """
+    return viz.upload_to_gcs(
+        png_base64=png_base64,
+        bucket_name=GCS_CHART_BUCKET,
+        blob_name=blob_name if blob_name else None,
+    )
+
+## convert custom python functions into ADK FunctionTools
+viz_tool = FunctionTool(func=create_chart)
+gcs_upload_tool = FunctionTool(func=upload_chart_to_gcs)
 
 root_agent = Agent(
     model='gemini-2.5-flash',
@@ -80,6 +114,14 @@ root_agent = Agent(
     
     10. When possible, add a brief recommended next-step (e.g., additional filters, visualization suggestions, or further breakdowns).
 
+    11. CHART RENDERING — when the user asks for a chart, graph, or visualization:
+        a. First call `create_chart` with the query result rows to generate the image.
+        b. Then immediately call `upload_chart_to_gcs` with the returned `png_base64`.
+        c. In your response, embed the image using the `markdown` field returned by
+           `upload_chart_to_gcs`, e.g.: ![Census Chart](https://...)  
+           The ADK web UI renders standard markdown images, so the chart will appear inline.
+        d. Never paste raw base64 strings into the chat — always upload first.
+
     === EXAMPLE PROMPTS AND EXPECTED BEHAVIOR ===
 
     User: "What's the ancestry composition of Burwood NSW (postcode 2134) from 2021?"
@@ -106,5 +148,5 @@ root_agent = Agent(
     Be concise, factual, and always include the SQL and parameter bindings for reproducibility. 
     """,
 
-    tools=[bq_toolset]
+    tools=[bq_toolset, viz_tool, gcs_upload_tool]
 )
